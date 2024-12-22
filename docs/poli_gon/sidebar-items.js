@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CameraKind","ObjParseError","Object3dKind","PowerPreference"],"struct":["BfsIterator","BoxGeometry","BufferGeometry","Camera","DfsIterator","ForwardRenderer","ForwardRendererOptions","Gpu","GpuOptions","Mesh","ObjParseOptions","ObjParseResult","ObjParser","Object3d"],"trait":["Geometry"]};
