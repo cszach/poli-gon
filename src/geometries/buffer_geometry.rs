@@ -1,6 +1,6 @@
 use super::Geometry;
 
-/// Shape of [triangular polygon 3D mesh](super::mesh::Mesh) with compiled
+/// Shape of [triangular polygon 3D mesh](crate::Mesh) with compiled
 /// buffer data.
 pub struct BufferGeometry {
     /// Position attribute buffer. Every consecutive triplet specifies the

@@ -35,7 +35,7 @@ pub struct ForwardRenderer<'window> {
     pipeline: wgpu::RenderPipeline,
 }
 
-/// Defines the [`ForwardRenderer`](#ForwardRenderer)'s behavior.
+/// Defines the [`ForwardRenderer`]'s behavior.
 pub struct ForwardRendererOptions {
     /// See [`GpuOptions#power_preference`].
     pub power_preference: PowerPreference,

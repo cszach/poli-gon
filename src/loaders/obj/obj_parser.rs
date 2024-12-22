@@ -1,43 +1,3 @@
-//! Module for parsing OBJ files.
-//!
-//! ## Supported commands
-//!
-//! - [x] Geometric vertices (`v`)
-//! - [x] Texture vertices (`vt`)
-//! - [x] Vertex normals (`vn`)
-//! - [ ] Parameter space vertices (`vp`)
-//! - [ ] Rational or non-rational forms of curve or surface type (`cstype`)
-//! - [ ] Degree (`deg`)
-//! - [ ] Basis matrix (`bmat`)
-//! - [ ] Step size (`step`)
-//! - [ ] Point (`p`)
-//! - [ ] Line (`l`)
-//! - [x] Face (`f`)
-//! - [ ] Curve (`curv`)
-//! - [ ] 2D curve (`curv2`)
-//! - [ ] Surface (`surf`)
-//! - [ ] Parameter values (`parm`)
-//! - [ ] Outer trimming loop (`trim`)
-//! - [ ] Inner trimming loop (`hole`)
-//! - [ ] Special curve (`scrv`)
-//! - [ ] Special point (`sp`)
-//! - [ ] End statement (`end`)
-//! - [ ] Connect (`con`)
-//! - [x] Group name (`g`)
-//! - [ ] Smoothing group (`s`)
-//! - [ ] Merging group (`mg`)
-//! - [x] Object name (`o`)
-//! - [ ] Bevel interpolation (`bevel`)
-//! - [ ] Color interpolation (`c_interp`)
-//! - [ ] Dissolve interpolation (`d_interp`)
-//! - [ ] Level of detail (`lod`)
-//! - [ ] Material name (`usemtl`)
-//! - [ ] Material library (`mtllib`)
-//! - [ ] Shadow casting (`shadow_obj`)
-//! - [ ] Ray tracing (`trace_obj`)
-//! - [ ] Curve approximation technique (`ctech`)
-//! - [ ] Surface approximation technique (`stech`)
-
 use std::{cell::RefCell, collections::HashSet, ops::RangeInclusive, rc::Rc, str::Split};
 
 use crate::{
@@ -143,7 +103,7 @@ pub struct ObjParseOptions {
     /// If `true`, returns an error when an unsupported command is encountered.
     /// If `false`, ignores unsupported commands.
     ///
-    /// For a list of supported commands, see the [module-level documentation](super).
+    /// For a list of supported commands, see the [`ObjParser` documentation](ObjParser).
     pub error_on_unsupported_data_types: bool,
     /// If `true`, invalid texture vertex or vertex normal reference numbers
     /// will throw a parse error. If `false`, they become warnings instead, and
@@ -153,7 +113,45 @@ pub struct ObjParseOptions {
     pub error_on_invalid_reference_number: bool,
 }
 
-/// Parser for the OBJ file format.
+/// Parser for ASCII OBJ files.
+///
+/// ## Supported commands
+///
+/// - [x] Geometric vertices (`v`)
+/// - [x] Texture vertices (`vt`)
+/// - [x] Vertex normals (`vn`)
+/// - [ ] Parameter space vertices (`vp`)
+/// - [ ] Rational or non-rational forms of curve or surface type (`cstype`)
+/// - [ ] Degree (`deg`)
+/// - [ ] Basis matrix (`bmat`)
+/// - [ ] Step size (`step`)
+/// - [ ] Point (`p`)
+/// - [ ] Line (`l`)
+/// - [x] Face (`f`)
+/// - [ ] Curve (`curv`)
+/// - [ ] 2D curve (`curv2`)
+/// - [ ] Surface (`surf`)
+/// - [ ] Parameter values (`parm`)
+/// - [ ] Outer trimming loop (`trim`)
+/// - [ ] Inner trimming loop (`hole`)
+/// - [ ] Special curve (`scrv`)
+/// - [ ] Special point (`sp`)
+/// - [ ] End statement (`end`)
+/// - [ ] Connect (`con`)
+/// - [x] Group name (`g`)
+/// - [ ] Smoothing group (`s`)
+/// - [ ] Merging group (`mg`)
+/// - [x] Object name (`o`)
+/// - [ ] Bevel interpolation (`bevel`)
+/// - [ ] Color interpolation (`c_interp`)
+/// - [ ] Dissolve interpolation (`d_interp`)
+/// - [ ] Level of detail (`lod`)
+/// - [ ] Material name (`usemtl`)
+/// - [ ] Material library (`mtllib`)
+/// - [ ] Shadow casting (`shadow_obj`)
+/// - [ ] Ray tracing (`trace_obj`)
+/// - [ ] Curve approximation technique (`ctech`)
+/// - [ ] Surface approximation technique (`stech`)
 pub struct ObjParser {}
 
 struct ObjParseState {
@@ -451,7 +449,7 @@ impl ObjParser {
     }
 
     /// Parses the content of an OBJ file. A list of supported commands can be
-    /// found at the [module-level documentation](super).
+    /// found in the [`Object3d` documentation](Object3d).
     ///
     /// More specifically, the parser follows the ASCII OBJ 3.0 format, based on
     /// Appendix B1 from the manual for Wavefront's Advanced Visualizer

@@ -5,7 +5,7 @@ use crate::geometries::BufferGeometry;
 /// Triangular polygon mesh 3D object.
 ///
 /// A mesh has a geometry (its shape) and a material (its look) and is the most
-/// primitive [kind of 3D object](super::Object3DKind).
+/// primitive [kind of 3D object](super::Object3dKind).
 pub struct Mesh {
     /// The triangular polygon geometry.
     pub geometry: Rc<BufferGeometry>,

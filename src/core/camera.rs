@@ -41,7 +41,7 @@ pub struct Camera {
     pub kind: RefCell<CameraKind>,
     /// The position of the camera in world space, for writing into the camera
     /// position buffer. Do not modify this property directly, instead use
-    /// transformation methods on the encapsulating [`Object3D`](super::Object3D).
+    /// transformation methods on the encapsulating [`Object3D`](super::Object3d).
     pub position: Vector3,
 }
 

@@ -154,7 +154,7 @@ impl Object3d {
 
     /// Rotates the given 3D object and updates its descendants' world matrices.
     ///
-    /// If you have Euler angles, you can use [`Euler::into`].
+    /// If you have Euler angles, you can use [`Quaternion::from`].
     pub fn rotate(object: &Rc<Self>, q: &Quaternion) {
         object.local_matrix.borrow_mut().rotate(q);
         Self::update_world_matrix(object, true);
