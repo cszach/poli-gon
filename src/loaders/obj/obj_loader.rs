@@ -1,0 +1,3 @@
+struct ObjLoader {}
+
+impl ObjLoader {}

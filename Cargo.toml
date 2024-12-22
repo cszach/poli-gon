@@ -1,0 +1,10 @@
+[package]
+name = "poli-gon"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bytemuck = { version = "1.20.0", features = ["derive"] }
+poli-math = { git = "https://github.com/cszach/poli-math" }
+wgpu = "22.1.0"
+winit = "0.30.5"
