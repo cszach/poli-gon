@@ -1,10 +1,11 @@
 [package]
 name = "poli-gon"
 version = "0.1.0"
+authors = ["Zach Nguyen <zach@zachnguyen.com>"]
 edition = "2021"
+description = "Cross-platform 3D graphics library for Rust fueled by WebGPU."
 
 [dependencies]
 bytemuck = { version = "1.20.0", features = ["derive"] }
 poli-math = { git = "https://github.com/cszach/poli-math" }
 wgpu = "22.1.0"
-winit = "0.30.5"

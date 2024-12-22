@@ -1,11 +1,9 @@
-use std::{error::Error, rc::Rc};
-
-use winit::{dpi::LogicalSize, window::Window};
+use std::error::Error;
 
 /// Container for several GPU objects used by renderers.
-pub struct Gpu {
+pub struct Gpu<'window> {
     /// The WGPU surface.
-    pub surface: wgpu::Surface<'static>,
+    pub surface: wgpu::Surface<'window>,
     /// The WGPU device.
     pub device: wgpu::Device,
     /// The WGPU queue.
@@ -13,35 +11,38 @@ pub struct Gpu {
     /// The WGPU surface configuration.
     pub surface_configuration: wgpu::SurfaceConfiguration,
     /// The size of the surface in (logical) pixels.
-    pub size: winit::dpi::LogicalSize<u32>,
-    /// The [`Window`] (which is the application window or the canvas).
-    pub window: Rc<Window>,
+    pub size: (u32, u32),
 }
 
 /// Parameters for when creating a new GPU adapter.
 pub struct GpuOptions {
-    pub window: Rc<Window>,
     /// Provides a **hint** to indicate which GPU to use. `LowPower` means to
     /// use an integrated GPU, while `HighPower` means to use a dedicated GPU.
     /// Default is `None` (provides no hint).
     pub power_preference: wgpu::PowerPreference,
 }
 
-impl Gpu {
+impl<'window> Gpu<'window> {
     /// Creates a new GPU object with the specified options.
+    ///
+    /// * `window`: Window to render on.
+    /// * `options`: Configuration for the new renderer.
     ///
     /// # Returns
     ///
     /// A [`Future`](std::future::Future) where the new state is returned, or
     /// either a [`CreateSurfaceError`](wgpu::CreateSurfaceError) or
     /// [`RequestDeviceError`](wgpu::RequestDeviceError).
-    pub async fn new(options: GpuOptions) -> Result<Self, Box<dyn Error>> {
+    pub async fn new(
+        window: impl Into<wgpu::SurfaceTarget<'window>>,
+        options: GpuOptions,
+    ) -> Result<Self, Box<dyn Error>> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::BROWSER_WEBGPU.union(wgpu::Backends::GL),
+            backends: wgpu::Backends::all(),
             ..Default::default()
         });
 
-        let surface = instance.create_surface(options.window.clone())?;
+        let surface = instance.create_surface(window)?;
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -73,13 +74,13 @@ impl Gpu {
             .copied()
             .unwrap_or(surface_capabilities.formats[0]);
 
-        let size = LogicalSize::new(300, 150);
+        let size = (300, 150);
 
         let surface_configuration = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: surface_format,
-            width: size.width,
-            height: size.height,
+            width: size.0,
+            height: size.1,
             present_mode: surface_capabilities.present_modes[0],
             desired_maximum_frame_latency: 2,
             alpha_mode: surface_capabilities.alpha_modes[0],
@@ -94,7 +95,6 @@ impl Gpu {
             queue,
             surface_configuration,
             size,
-            window: options.window,
         })
     }
 
@@ -103,8 +103,8 @@ impl Gpu {
     /// has been resized.
     pub fn set_size(&mut self, width: u32, height: u32) {
         if width > 0 && height > 0 {
-            self.size.width = width;
-            self.size.height = height;
+            self.size.0 = width;
+            self.size.1 = height;
             self.surface_configuration.width = width;
             self.surface_configuration.height = height;
             self.surface

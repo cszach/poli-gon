@@ -2,7 +2,6 @@ use std::{mem::size_of, num::NonZero, rc::Rc};
 
 use poli_math::{Color, Matrix3, Matrix4, Vector3};
 use wgpu::{include_wgsl, VertexAttribute};
-use winit::window::Window;
 
 use crate::{
     core::{Camera, Object3d, Object3dKind},
@@ -13,9 +12,9 @@ use crate::{
 /// Forward renderer.
 ///
 /// The forward renderer renders each object in a separate draw call.
-pub struct ForwardRenderer {
+pub struct ForwardRenderer<'window> {
     /// Contains various GPU objects used by this renderer.
-    pub state: Gpu,
+    pub gpu: Gpu<'window>,
     /// The clear color to use for the clear operation.
     pub clear_color: Color,
     /// The clear alpha to use for the clear operation.
@@ -55,7 +54,7 @@ impl Default for ForwardRendererOptions {
     }
 }
 
-impl ForwardRenderer {
+impl<'window> ForwardRenderer<'window> {
     /// The maximum number of meshes that this renderer can render.
     pub const MESH_CAPACITY: u64 = 1024;
     /// The maximum number of vertices that a mesh can have to be rendered properly.
@@ -66,23 +65,24 @@ impl ForwardRenderer {
     /// https://www.w3.org/TR/webgpu/#dom-supported-limits-minuniformbufferoffsetalignment).
     const OFFSET: u64 = 256;
 
-    /// Creates a new forward renderer.
-    ///
-    /// * `window`: The window for the renderer to draw on.
-    /// * `options`: Parameters for the new renderer.
-    pub async fn new(window: &Rc<Window>, options: ForwardRendererOptions) -> Self {
-        let state = Gpu::new(GpuOptions {
-            window: Rc::clone(window),
-            power_preference: options.power_preference,
-        })
+    pub async fn new(
+        window: impl Into<wgpu::SurfaceTarget<'window>>,
+        options: ForwardRendererOptions,
+    ) -> Self {
+        let gpu = Gpu::new(
+            window,
+            GpuOptions {
+                power_preference: options.power_preference,
+            },
+        )
         .await
         .unwrap();
 
-        let depth_texture = state.device.create_texture(&wgpu::TextureDescriptor {
+        let depth_texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: None,
             size: wgpu::Extent3d {
-                width: window.inner_size().width,
-                height: window.inner_size().height,
+                width: gpu.size.0,
+                height: gpu.size.1,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -95,8 +95,7 @@ impl ForwardRenderer {
         });
 
         let bind_group_layout =
-            state
-                .device
+            gpu.device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     label: None,
                     entries: &[
@@ -179,7 +178,7 @@ impl ForwardRenderer {
             }],
         };
 
-        let position_buffer = state.device.create_buffer(&wgpu::BufferDescriptor {
+        let position_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Position buffer"),
             size: Self::OFFSET * (Self::VERTEX_CAPACITY - 1) + (3 * 4),
             usage: wgpu::BufferUsages::VERTEX.union(wgpu::BufferUsages::COPY_DST),
@@ -196,7 +195,7 @@ impl ForwardRenderer {
             }],
         };
 
-        let normal_buffer = state.device.create_buffer(&wgpu::BufferDescriptor {
+        let normal_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Normal buffer"),
             size: Self::OFFSET * (Self::VERTEX_CAPACITY - 1) + (2 * 4),
             usage: wgpu::BufferUsages::VERTEX.union(wgpu::BufferUsages::COPY_DST),
@@ -213,76 +212,75 @@ impl ForwardRenderer {
             }],
         };
 
-        let uv_buffer = state.device.create_buffer(&wgpu::BufferDescriptor {
+        let uv_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("UV buffer"),
             size: Self::OFFSET * (Self::VERTEX_CAPACITY - 1) + (2 * 4),
             usage: wgpu::BufferUsages::VERTEX.union(wgpu::BufferUsages::COPY_DST),
             mapped_at_creation: false,
         });
 
-        let index_buffer = state.device.create_buffer(&wgpu::BufferDescriptor {
+        let index_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Index buffer"),
             size: Self::OFFSET * (Self::POLYGON_CAPACITY - 1) + 4 * 4,
             usage: wgpu::BufferUsages::INDEX.union(wgpu::BufferUsages::COPY_DST),
             mapped_at_creation: false,
         });
 
-        let model_matrix_buffer = state.device.create_buffer(&wgpu::BufferDescriptor {
+        let model_matrix_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Model matrix buffer"),
             size: Self::OFFSET * (Self::MESH_CAPACITY - 1) + size_of::<Matrix4>() as u64,
             usage: wgpu::BufferUsages::UNIFORM.union(wgpu::BufferUsages::COPY_DST),
             mapped_at_creation: false,
         });
 
-        let model_view_matrix_buffer = state.device.create_buffer(&wgpu::BufferDescriptor {
+        let model_view_matrix_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Model view matrix buffer"),
             size: Self::OFFSET * (Self::MESH_CAPACITY - 1) + size_of::<Matrix4>() as u64,
             usage: wgpu::BufferUsages::UNIFORM.union(wgpu::BufferUsages::COPY_DST),
             mapped_at_creation: false,
         });
 
-        let projection_matrix_buffer = state.device.create_buffer(&wgpu::BufferDescriptor {
+        let projection_matrix_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Projection matrix buffer"),
             size: size_of::<Matrix4>() as u64,
             usage: wgpu::BufferUsages::UNIFORM.union(wgpu::BufferUsages::COPY_DST),
             mapped_at_creation: false,
         });
 
-        let view_matrix_buffer = state.device.create_buffer(&wgpu::BufferDescriptor {
+        let view_matrix_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("View matrix buffer"),
             size: size_of::<Matrix4>() as u64,
             usage: wgpu::BufferUsages::UNIFORM.union(wgpu::BufferUsages::COPY_DST),
             mapped_at_creation: false,
         });
 
-        let normal_matrix_buffer = state.device.create_buffer(&wgpu::BufferDescriptor {
+        let normal_matrix_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Normal matrix buffer"),
             size: Self::OFFSET * (Self::MESH_CAPACITY - 1) + size_of::<Matrix3>() as u64,
             usage: wgpu::BufferUsages::UNIFORM.union(wgpu::BufferUsages::COPY_DST),
             mapped_at_creation: false,
         });
 
-        let camera_position_buffer = state.device.create_buffer(&wgpu::BufferDescriptor {
+        let camera_position_buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Camera position buffer"),
             size: size_of::<Vector3>() as u64,
             usage: wgpu::BufferUsages::UNIFORM.union(wgpu::BufferUsages::COPY_DST),
             mapped_at_creation: false,
         });
 
-        let pipeline_layout =
-            state
-                .device
-                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: None,
-                    bind_group_layouts: &[&bind_group_layout],
-                    push_constant_ranges: &[],
-                });
+        let pipeline_layout = gpu
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: None,
+                bind_group_layouts: &[&bind_group_layout],
+                push_constant_ranges: &[],
+            });
 
-        let module = state
+        let module = gpu
             .device
             .create_shader_module(include_wgsl!("shaders/forward_renderer.wgsl"));
 
-        let pipeline = state
+        let pipeline = gpu
             .device
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: None,
@@ -302,7 +300,7 @@ impl ForwardRenderer {
                     entry_point: "fragmentMain",
                     compilation_options: Default::default(),
                     targets: &[Some(wgpu::ColorTargetState {
-                        format: state.surface_configuration.format,
+                        format: gpu.surface_configuration.format,
                         blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
@@ -330,7 +328,7 @@ impl ForwardRenderer {
 
         Self {
             depth_texture,
-            state,
+            gpu,
             clear_color: Color {
                 r: 0.0,
                 g: 0.0,
@@ -355,8 +353,8 @@ impl ForwardRenderer {
     /// Reconfigures the renderer to render to the specified size. Note that
     /// this does not resize the window.
     pub fn set_size(&mut self, width: u32, height: u32) {
-        self.state.set_size(width, height);
-        self.depth_texture = self.state.device.create_texture(&wgpu::TextureDescriptor {
+        self.gpu.set_size(width, height);
+        self.depth_texture = self.gpu.device.create_texture(&wgpu::TextureDescriptor {
             label: None,
             size: wgpu::Extent3d {
                 width,
@@ -379,12 +377,12 @@ impl ForwardRenderer {
         scene: Rc<Object3d>,
         camera: &Camera,
     ) -> Result<(), wgpu::SurfaceError> {
-        let output = self.state.surface.get_current_texture()?;
+        let output = self.gpu.surface.get_current_texture()?;
         let texture_view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        self.state.queue.write_buffer(
+        self.gpu.queue.write_buffer(
             &self.projection_matrix_buffer,
             0,
             bytemuck::cast_slice(&[camera.projection_matrix]),
@@ -396,7 +394,7 @@ impl ForwardRenderer {
             &(0.0, 1.0, 0.0).into(),
         );
 
-        self.state.queue.write_buffer(
+        self.gpu.queue.write_buffer(
             &self.view_matrix_buffer,
             0,
             bytemuck::cast_slice(&[view_matrix]),
@@ -434,14 +432,14 @@ impl ForwardRenderer {
         //     &camera.view_matrix.elements[15].into(),
         // );
 
-        self.state.queue.write_buffer(
+        self.gpu.queue.write_buffer(
             &self.camera_position_buffer,
             0,
             bytemuck::cast_slice(&[camera.position]),
         );
 
         let mut encoder = self
-            .state
+            .gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
 
@@ -495,91 +493,90 @@ impl ForwardRenderer {
             if let Object3dKind::Mesh(mesh) = &object.kind {
                 let mut mut_bind_group = mesh.as_ref().bind_group.borrow_mut();
 
-                let bind_group =
-                    &*mut_bind_group.get_or_insert(self.state.device.create_bind_group(
-                        &wgpu::BindGroupDescriptor {
-                            label: None,
-                            layout: &self.bind_group_layout,
-                            entries: &[
-                                // Model matrix
-                                wgpu::BindGroupEntry {
-                                    binding: 0,
-                                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                                        buffer: &self.model_matrix_buffer,
-                                        offset: mesh_index * Self::OFFSET,
-                                        size: NonZero::new(size_of::<Matrix4>() as u64),
-                                    }),
-                                },
-                                // Model-view matrix
-                                wgpu::BindGroupEntry {
-                                    binding: 1,
-                                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                                        buffer: &self.model_view_matrix_buffer,
-                                        offset: mesh_index * Self::OFFSET,
-                                        size: NonZero::new(size_of::<Matrix4>() as u64),
-                                    }),
-                                },
-                                // Projection matrix
-                                wgpu::BindGroupEntry {
-                                    binding: 2,
-                                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                                        buffer: &self.projection_matrix_buffer,
-                                        offset: 0,
-                                        size: NonZero::new(size_of::<Matrix4>() as u64),
-                                    }),
-                                },
-                                // View matrix
-                                wgpu::BindGroupEntry {
-                                    binding: 3,
-                                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                                        buffer: &self.view_matrix_buffer,
-                                        offset: 0,
-                                        size: NonZero::new(size_of::<Matrix4>() as u64),
-                                    }),
-                                },
-                                // Normal matrix
-                                wgpu::BindGroupEntry {
-                                    binding: 4,
-                                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                                        buffer: &self.normal_matrix_buffer,
-                                        offset: mesh_index * Self::OFFSET,
-                                        // WebGPU requires 48 bytes minimum.
-                                        // TODO: investigate the spec.
-                                        size: NonZero::new(size_of::<Matrix4>() as u64),
-                                    }),
-                                },
-                                // Camera position
-                                wgpu::BindGroupEntry {
-                                    binding: 5,
-                                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                                        buffer: &self.camera_position_buffer,
-                                        offset: 0,
-                                        size: NonZero::new(size_of::<Vector3>() as u64),
-                                    }),
-                                },
-                            ],
-                        },
-                    ));
+                let bind_group = &*mut_bind_group.get_or_insert(self.gpu.device.create_bind_group(
+                    &wgpu::BindGroupDescriptor {
+                        label: None,
+                        layout: &self.bind_group_layout,
+                        entries: &[
+                            // Model matrix
+                            wgpu::BindGroupEntry {
+                                binding: 0,
+                                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                    buffer: &self.model_matrix_buffer,
+                                    offset: mesh_index * Self::OFFSET,
+                                    size: NonZero::new(size_of::<Matrix4>() as u64),
+                                }),
+                            },
+                            // Model-view matrix
+                            wgpu::BindGroupEntry {
+                                binding: 1,
+                                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                    buffer: &self.model_view_matrix_buffer,
+                                    offset: mesh_index * Self::OFFSET,
+                                    size: NonZero::new(size_of::<Matrix4>() as u64),
+                                }),
+                            },
+                            // Projection matrix
+                            wgpu::BindGroupEntry {
+                                binding: 2,
+                                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                    buffer: &self.projection_matrix_buffer,
+                                    offset: 0,
+                                    size: NonZero::new(size_of::<Matrix4>() as u64),
+                                }),
+                            },
+                            // View matrix
+                            wgpu::BindGroupEntry {
+                                binding: 3,
+                                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                    buffer: &self.view_matrix_buffer,
+                                    offset: 0,
+                                    size: NonZero::new(size_of::<Matrix4>() as u64),
+                                }),
+                            },
+                            // Normal matrix
+                            wgpu::BindGroupEntry {
+                                binding: 4,
+                                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                    buffer: &self.normal_matrix_buffer,
+                                    offset: mesh_index * Self::OFFSET,
+                                    // WebGPU requires 48 bytes minimum.
+                                    // TODO: investigate the spec.
+                                    size: NonZero::new(size_of::<Matrix4>() as u64),
+                                }),
+                            },
+                            // Camera position
+                            wgpu::BindGroupEntry {
+                                binding: 5,
+                                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                                    buffer: &self.camera_position_buffer,
+                                    offset: 0,
+                                    size: NonZero::new(size_of::<Vector3>() as u64),
+                                }),
+                            },
+                        ],
+                    },
+                ));
 
-                self.state.queue.write_buffer(
+                self.gpu.queue.write_buffer(
                     &self.position_buffer,
                     base_vertex * 12,
                     bytemuck::cast_slice(mesh.geometry.position.as_ref()),
                 );
 
-                self.state.queue.write_buffer(
+                self.gpu.queue.write_buffer(
                     &self.normal_buffer,
                     base_vertex * 12,
                     bytemuck::cast_slice(mesh.geometry.normal.as_ref()),
                 );
 
-                self.state.queue.write_buffer(
+                self.gpu.queue.write_buffer(
                     &self.uv_buffer,
                     base_vertex * 8,
                     bytemuck::cast_slice(mesh.geometry.uv.as_ref()),
                 );
 
-                self.state.queue.write_buffer(
+                self.gpu.queue.write_buffer(
                     &self.model_matrix_buffer,
                     mesh_index * Self::OFFSET,
                     bytemuck::cast_slice(&[*object.world_matrix.borrow()]),
@@ -588,13 +585,13 @@ impl ForwardRenderer {
                 let model_view_matrix = view_matrix * object.world_matrix.borrow().as_ref();
                 let normal_matrix: Matrix3 = Matrix3::normal_matrix(&model_view_matrix);
 
-                self.state.queue.write_buffer(
+                self.gpu.queue.write_buffer(
                     &self.model_view_matrix_buffer,
                     mesh_index * Self::OFFSET,
                     bytemuck::cast_slice(&[model_view_matrix]),
                 );
 
-                self.state.queue.write_buffer(
+                self.gpu.queue.write_buffer(
                     &self.normal_matrix_buffer,
                     mesh_index * Self::OFFSET,
                     bytemuck::cast_slice(&[normal_matrix]),
@@ -605,7 +602,7 @@ impl ForwardRenderer {
                 let num_vertices = mesh.geometry.position.len() as u32 / 3;
 
                 if let Some(indices) = &mesh.geometry.indices {
-                    self.state.queue.write_buffer(
+                    self.gpu.queue.write_buffer(
                         &self.index_buffer,
                         index_start * size_of::<u32>() as u64,
                         bytemuck::cast_slice(indices.as_ref()),
@@ -633,7 +630,7 @@ impl ForwardRenderer {
 
         drop(render_pass);
 
-        self.state.queue.submit(std::iter::once(encoder.finish()));
+        self.gpu.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
         Ok(())
