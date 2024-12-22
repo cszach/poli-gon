@@ -97,24 +97,6 @@ impl Iterator for DfsIterator {
 
 impl Object3d {
     /// Creates a new 3D object of the specified kind at the world origin.
-    ///
-    /// ![NOTE]
-    /// If you already have a [`Mesh`] or [`Camera`] and want to convert it to
-    /// an [`Object3D`], use `.into()` instead.
-    ///
-    /// ```rust
-    /// let scene = Rc::new(Object3D::new(Object3DKind::Group));
-    /// let triangle: Object3D = Mesh::new(Rc::clone(&geo)).into();
-    /// let perspective_camera = Rc::new(
-    ///     Camera::new(CameraKind::PerspectiveCamera {
-    ///         vfov_radians: 50.0,
-    ///         aspect: 1.0,
-    ///         near: 0.1,
-    ///         far: 2000.0,
-    ///     })
-    ///     .into(),
-    /// );
-    /// ```
     pub fn new(kind: Object3dKind) -> Self {
         Self {
             name: RefCell::new(None),
