@@ -7,7 +7,7 @@ environments or the Web with WebAssembly.
 
 [Read the docs][docs]
 
-[docs]: https://zachnguyen.com/poli_gon
+[docs]: https://zachnguyen.com/poli-gon
 
 Work in progress. Due for release on <https://crates.io> soon.
 
